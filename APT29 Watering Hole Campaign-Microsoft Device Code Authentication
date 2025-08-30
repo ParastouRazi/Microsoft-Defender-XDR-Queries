@@ -1,0 +1,24 @@
+let suspiciousUserClicks = materialize(
+    UrlClickEvents
+    | where ActionType in ("ClickAllowed","UrlScanInProgress","UrlErrorPage") or IsClickedThrough != "0"
+    | where UrlChain has_any ("microsoft.com/devicelogin","login.microsoftonline.com/common/oauth2/deviceauth")
+    | extend AccountUpn = tolower(AccountUpn)
+    | project ClickTime=Timestamp,ActionType,UrlChain,NetworkMessageId,Url,AccountUpn
+);
+let interestedUsersUpn = suspiciousUserClicks
+    | where isnotempty(AccountUpn)
+    | distinct AccountUpn;
+let rawSignIns = materialize(
+    AADSignInEventsBeta
+    | where ErrorCode in (0, 50199)
+    | extend AccountUpn = tolower(AccountUpn)
+    | where AccountUpn in~ (interestedUsersUpn)
+);
+let shortIntervalSignInAttemptUsers = rawSignIns
+    | summarize ErrorCodes=make_set(ErrorCode) by AccountUpn, CorrelationId, SessionId
+    | where ErrorCodes has_all (0, 50199)
+    | distinct AccountUpn;
+rawSignIns
+| where AccountUpn in (shortIntervalSignInAttemptUsers)
+| join kind=inner suspiciousUserClicks on AccountUpn
+| project Timestamp, ReportId, ClickTime, AccountUpn, RiskLevelDuringSignIn, SessionId, IPAddress, Url
