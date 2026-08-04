@@ -1,24 +1,76 @@
 Process Hollowing Into Signed Binary from Suspicious Staging Path
 
-
 DeviceProcessEvents
-| where Timestamp > ago(30d)
+| where Timestamp > ago(7d)
 | where FolderPath has_any (
-    @"\ProgramData\",
     @"\AppData\Local\Temp\",
     @"\AppData\Roaming\",
     @"\Windows\Temp\"
 )
+
+| where FolderPath !has @"\Program Files\"
+| where FolderPath !has @"\Program Files (x86)\"
+| where FolderPath !has @"\Windows\"
+
+
+| where FileName !in~ (
+    "MsMpEng.exe",
+    "MpCmdRun.exe",
+    "SenseCncProxy.exe",
+    "SenseIR.exe",
+    "SenseSampleUploader.exe",
+    "IdleScheduleEventAction.exe",
+    "oscfg.exe",
+    "agentid-service.exe",
+    "Zoom.exe",
+    "setup.exe",
+    "chrome_installer.exe",
+    "QSHelper.exe",
+    "QualysAgentUI.exe",
+    "OSManagerInstallerSetup.exe",
+    "NisSrv.exe",
+    "BackgroundDownload.exe",
+    "PresentationLauncher.exe",
+    "SUMessageBox.exe",
+    "LenovoVantage.exe",
+    "SesProbe.exe",
+    "SophosUpdate.exe",
+    "AppDriver-153.exe",
+    "winrar.exe",
+    "vlc.exe",
+    "MpDefenderCoreService.exe",
+    "WebView2UdfCreator.exe",
+    "ScheduleEventAction.exe",
+    "GrammarlyInstaller.exe",
+    "hp-data-retriever.exe",
+    "OmenInstallMonitor.exe",
+    "AdskLicensingUpdateSupport.exe",
+    "acroinst2.exe"
+)
+
+| where InitiatingProcessFileName !in~ (
+    "MsMpEng.exe",
+    "SenseCncProxy.exe",
+    "SenseIR.exe",
+    "MpCmdRun.exe"
+)
+
 | where ProcessVersionInfoCompanyName !in~ (
     "Microsoft Corporation",
+    "Microsoft Windows",
     "SentinelOne",
     "CrowdStrike, Inc.",
     "Carbon Black, Inc.",
     "Sophos Limited",
     "Trend Micro Incorporated",
     "Kaspersky Lab",
-    "Malwarebytes"
+    "Malwarebytes",
+    "Qualys, Inc.",
+    "Lenovo",
+    "HP Inc.",
+    "Zoom Video Communications, Inc."
 )
+
 | project
     Timestamp,
     DeviceName,
@@ -26,13 +78,11 @@ DeviceProcessEvents
     FileName,
     FolderPath,
     ProcessCommandLine,
-    ProcessId,
     ProcessVersionInfoCompanyName,
-    ProcessVersionInfoProductName,
     InitiatingProcessFileName,
     InitiatingProcessFolderPath,
     InitiatingProcessCommandLine,
-    InitiatingProcessAccountName,
     SHA1,
     SHA256
+
 | order by Timestamp desc
