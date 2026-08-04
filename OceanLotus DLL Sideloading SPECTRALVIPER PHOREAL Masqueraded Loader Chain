@@ -1,0 +1,75 @@
+OceanLotus DLL Sideloading – SPECTRALVIPER/PHOREAL Masqueraded Loader Chain
+
+let SuspiciousProcessCreation =
+DeviceProcessEvents
+| where Timestamp > ago(30d)
+| where
+    (
+        FileName =~ "IntelAudioService.exe"
+        and ProcessCommandLine has "/appmodel"
+        and ProcessCommandLine has "StateRepository"
+    )
+    or
+    (
+        FileName in~ (
+            "Genuine.exe",
+            "Updater.exe",
+            "AutoCAD242.exe"
+        )
+        and ProcessCommandLine has "-uiDll"
+    )
+| project
+    Timestamp,
+    DeviceName,
+    AccountName,
+    FileName,
+    FolderPath,
+    ProcessCommandLine,
+    SHA256,
+    InitiatingProcessFileName,
+    InitiatingProcessCommandLine,
+    Detection = "OceanLotus DLL Sideloading - Suspicious Loader Chain";
+let SuspiciousDLLLoad =
+DeviceImageLoadEvents
+| where Timestamp > ago(30d)
+| where FileName =~ "DtlCrashCatch.dll"
+| project
+    Timestamp,
+    DeviceName,
+    InitiatingProcessAccountName,
+    InitiatingProcessFileName,
+    InitiatingProcessFolderPath,
+    FileName,
+    FolderPath,
+    SHA256,
+    Detection = "OceanLotus DLL Sideloading - Malicious DLL Load";
+let SuspiciousProcessAccess =
+DeviceEvents
+| where Timestamp > ago(30d)
+| where ActionType has_any (
+    "ProcessAccess",
+    "RemoteThreadCreation",
+    "ProcessInjection"
+)
+| where InitiatingProcessFileName in~ (
+    "IntelAudioService.exe",
+    "Genuine.exe",
+    "Updater.exe",
+    "AutoCAD242.exe",
+    "OneDrive.Sync.Services.exe",
+    "OneDrive.Sync.Service.exe"
+)
+| project
+    Timestamp,
+    DeviceName,
+    AccountName,
+    InitiatingProcessFileName,
+    InitiatingProcessCommandLine,
+    FileName,
+    AdditionalFields,
+    Detection = "OceanLotus DLL Sideloading - Process Injection";
+union isfuzzy=true
+SuspiciousProcessCreation,
+SuspiciousDLLLoad,
+SuspiciousProcessAccess
+| order by Timestamp desc
