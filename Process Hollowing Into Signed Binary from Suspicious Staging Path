@@ -1,0 +1,38 @@
+Process Hollowing Into Signed Binary from Suspicious Staging Path
+
+
+DeviceProcessEvents
+| where Timestamp > ago(30d)
+| where FolderPath has_any (
+    @"\ProgramData\",
+    @"\AppData\Local\Temp\",
+    @"\AppData\Roaming\",
+    @"\Windows\Temp\"
+)
+| where ProcessVersionInfoCompanyName !in~ (
+    "Microsoft Corporation",
+    "SentinelOne",
+    "CrowdStrike, Inc.",
+    "Carbon Black, Inc.",
+    "Sophos Limited",
+    "Trend Micro Incorporated",
+    "Kaspersky Lab",
+    "Malwarebytes"
+)
+| project
+    Timestamp,
+    DeviceName,
+    AccountName,
+    FileName,
+    FolderPath,
+    ProcessCommandLine,
+    ProcessId,
+    ProcessVersionInfoCompanyName,
+    ProcessVersionInfoProductName,
+    InitiatingProcessFileName,
+    InitiatingProcessFolderPath,
+    InitiatingProcessCommandLine,
+    InitiatingProcessAccountName,
+    SHA1,
+    SHA256
+| order by Timestamp desc
