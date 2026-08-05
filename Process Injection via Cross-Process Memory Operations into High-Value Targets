@@ -1,0 +1,47 @@
+Process Injection via Cross-Process Memory Operations into High-Value Targets
+
+DeviceEvents
+| where Timestamp > ago(30d)
+| where ActionType has_any (
+    "ProcessAccess",
+    "RemoteThreadCreation",
+    "ProcessInjection"
+)
+| extend AdditionalFieldsParsed = parse_json(AdditionalFields)
+| where 
+    tostring(AdditionalFieldsParsed.TargetProcessName) has_any (
+        "lsass.exe",
+        "explorer.exe",
+        "svchost.exe",
+        "notepad.exe"
+    )
+    or FileName has_any (
+        "lsass.exe",
+        "explorer.exe",
+        "svchost.exe",
+        "notepad.exe"
+    )
+| where InitiatingProcessFileName !in~ (
+    "MsMpEng.exe",
+    "WerFault.exe",
+    "WerFaultSecure.exe",
+    "taskmgr.exe",
+    "procexp.exe",
+    "procexp64.exe",
+    "procmon.exe",
+    "procmon64.exe"
+)
+| project
+    Timestamp,
+    DeviceName,
+    AccountName,
+    ActionType,
+    InitiatingProcessFileName,
+    InitiatingProcessFolderPath,
+    InitiatingProcessCommandLine,
+    FileName,
+    FolderPath,
+    AdditionalFields,
+    SHA1,
+    SHA256
+| order by Timestamp desc
