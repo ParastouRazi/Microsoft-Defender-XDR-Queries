@@ -1,0 +1,37 @@
+REMCOS UAC Bypass via CMSTPLUA COM Elevation with Explorer.exe PEB Masquerade
+
+DeviceProcessEvents
+| where Timestamp > ago(30d)
+| where FileName in~ (
+    "iexplore.exe",
+    "ieinstal.exe",
+    "ielowutil.exe",
+    "svchost.exe",
+    "rmclient.exe",
+    "fsutil.exe"
+)
+| where InitiatingProcessFileName !in~ (
+    "explorer.exe",
+    "svchost.exe",
+    "services.exe",
+    "wininit.exe"
+)
+| where ProcessVersionInfoCompanyName !contains "Microsoft Corporation"
+| where not(InitiatingProcessFolderPath has_any (
+    @"\Windows\",
+    @"\Program Files\",
+    @"\Program Files (x86)\"
+))
+| project
+    Timestamp,
+    DeviceName,
+    AccountName,
+    FileName,
+    ProcessCommandLine,
+    ProcessVersionInfoCompanyName,
+    InitiatingProcessFileName,
+    InitiatingProcessFolderPath,
+    InitiatingProcessCommandLine,
+    SHA1,
+    SHA256
+| order by Timestamp desc
