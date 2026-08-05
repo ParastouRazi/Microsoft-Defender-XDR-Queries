@@ -1,0 +1,118 @@
+Kerberoasting via Rubeus or Impacket Tool Execution or Red Team Tools
+
+
+DeviceProcessEvents
+| where Timestamp > ago(30d)
+| where
+(
+    // Rubeus
+    FileName has_any (
+        "Rubeus.exe",
+        "Rubeus"
+    )
+    // Impacket
+    or ProcessCommandLine has_any (
+        "GetUserSPNs",
+        "GetUserSPNs.py",
+        "impacket-GetUserSPNs",
+        "impacket"
+    )
+    // PowerView / SharpView
+    or ProcessCommandLine has_any (
+        "Invoke-Kerberoast",
+        "Invoke-UserSPN",
+        "Get-DomainSPN",
+        "Get-DomainUser",
+        "SharpView"
+    )
+    // Mimikatz Kerberos modules
+    or ProcessCommandLine has_any (
+        "kerberos::ask",
+        "kerberos::list",
+        "kerberos::ptt",
+        "kerberoast",
+        "sekurlsa::tickets"
+    )
+    // Kekeo
+    or ProcessCommandLine has_any (
+        "kekeo",
+        "tgt::ask",
+        "tgs::ask"
+    )
+    or ProcessCommandLine has_any (
+        "netexec",
+        "nxc",
+        "crackmapexec"
+    )
+    or ProcessCommandLine has_any (
+        "certipy",
+        "certipy-ad"
+    )
+    or ProcessCommandLine has_any (
+        "asktgs",
+        "getst",
+        "gettgt",
+        "getticket",
+        "s4u",
+        "spn"
+    )
+    or ProcessCommandLine has_any (
+        "/rc4",
+        "-rc4",
+        "--rc4",
+        "rc4opsec",
+        "rc4_hmac",
+        "etype 23",
+        "etype:23",
+        "-etype 23"
+    )
+)
+| where ProcessVersionInfoCompanyName !in~ (
+    "Microsoft Corporation",
+    "Microsoft Windows"
+)
+| where FileName !in~ (
+    "MsMpEng.exe",
+    "MpCmdRun.exe",
+    "SenseIR.exe",
+    "SenseCncProxy.exe",
+    "SenseSampleUploader.exe",
+    "NisSrv.exe",
+    "oscfg.exe"
+)
+| extend DetectionName = case(
+    FileName has "Rubeus",
+    "Rubeus Kerberoasting",
+    ProcessCommandLine has "GetUserSPNs",
+    "Impacket Kerberoasting",
+    ProcessCommandLine has "Invoke-Kerberoast",
+    "PowerView Kerberoasting",
+    ProcessCommandLine has "SharpView",
+    "SharpView Kerberos Enumeration",
+    ProcessCommandLine has "kerberos::",
+    "Mimikatz Kerberos Attack",
+    ProcessCommandLine has "kekeo",
+    "Kekeo Kerberos Attack",
+    ProcessCommandLine has_any (
+        "rc4",
+        "etype 23",
+        "etype:23"
+    ),
+    "Kerberoasting RC4 Downgrade",
+    "Suspicious Kerberos Tool Execution"
+)
+| project
+    Timestamp,
+    DeviceName,
+    AccountName,
+    DetectionName,
+    FileName,
+    FolderPath,
+    ProcessCommandLine,
+    ProcessVersionInfoCompanyName,
+    InitiatingProcessFileName,
+    InitiatingProcessFolderPath,
+    InitiatingProcessCommandLine,
+    SHA1,
+    SHA256
+| order by Timestamp desc
