@@ -1,0 +1,105 @@
+VILE Ransomware Security Tool Tampering - ETW Patch and Event Log Clear
+
+let EventLogClear =
+DeviceProcessEvents
+| where Timestamp > ago(30d)
+| where
+(
+    ProcessCommandLine has_any (
+        "EvtClearLog",
+        "EvtOpenLog",
+        "Clear-EventLog",
+        "ClearEventLog",
+        "Win32_NTEventlogFile"
+    )
+    or
+    (
+        FileName =~ "wevtutil.exe"
+        and ProcessCommandLine has_any (
+            "cl ",
+            "clear-log",
+            "clear-log"
+        )
+    )
+    or
+    (
+        FileName in~ (
+            "powershell.exe",
+            "pwsh.exe"
+        )
+        and ProcessCommandLine has_any (
+            "Clear-EventLog",
+            "wevtutil"
+        )
+    )
+)
+| project
+    Timestamp,
+    DeviceName,
+    AccountName,
+    FileName,
+    ProcessCommandLine,
+    InitiatingProcessFileName,
+    InitiatingProcessCommandLine,
+    SHA256,
+    Detection = "VILE Ransomware - Event Log Clearing";
+let SecurityToolTampering =
+DeviceEvents
+| where Timestamp > ago(7d)
+| where ActionType has_any (
+    "ProcessAccess",
+    "RemoteThreadCreation",
+    "ProcessInjection"
+)
+| where AdditionalFields has_any (
+    "MsMpEng.exe",
+    "SentinelAgent.exe",
+    "SentinelServiceHost.exe",
+    "CSFalconService.exe",
+    "CSFalconContainer.exe",
+    "cb.exe",
+    "CarbonBlack.exe",
+    "cbdefense.exe",
+    "avgui.exe",
+    "avguard.exe",
+    "AvastSvc.exe",
+    "ekrn.exe",
+    "egui.exe"
+)
+| where InitiatingProcessFolderPath has_any (
+    @"\AppData\",
+    @"\Users\Public\",
+    @"\Temp\"
+)
+| project
+    Timestamp,
+    DeviceName,
+    AccountName,
+    InitiatingProcessFileName,
+    InitiatingProcessFolderPath,
+    InitiatingProcessCommandLine,
+    AdditionalFields,
+    SHA256,
+    Detection = "VILE Ransomware - Security Tool Tampering";
+let VileArtifacts =
+DeviceFileEvents
+| where Timestamp > ago(7d)
+| where FileName in~ (
+    "vile_deadlines.json",
+    "vile_user_files.zip",
+    "vile_icon.ico"
+)
+| project
+    Timestamp,
+    DeviceName,
+    InitiatingProcessFileName,
+    InitiatingProcessCommandLine,
+    FileName,
+    FolderPath,
+    SHA256,
+    Detection = "VILE Ransomware - Artifact Creation";
+union isfuzzy=true
+EventLogClear,
+SecurityToolTampering,
+VileArtifacts
+| order by Timestamp desc
